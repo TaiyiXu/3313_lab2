@@ -2,6 +2,7 @@
 #include "SharedObject.h"
 #include "thread.h"
 #include <string>
+#include "Semaphore.h"
 
 
 struct MyShared{
@@ -27,14 +28,18 @@ class WriterThread : public Thread{//creating thread for the writer
 		virtual long ThreadMain(void)override{
 			
 			Shared<MyShared>sharedMemory("sharedMemory");
-			
+			Semaphore writerSem("writerSemaphore");
+			Semaphore readerSem("readerSemaphore");//creating semaphore for the writer and reader
 			while(true)
 			{	//when user type yes, new thread should  be created and replaced the conetent with newest user enters.
+				writerSem.Wait();// shared object are locked and threads then can not access.
 				sharedMemory->sharedThreadID=threadID;
 				sharedMemory->sharedReportID=reportID;
 				sharedMemory->sharedDelay=delay;
 				reportID++;
-				sleep(delay);
+
+				writerSem.Signal(); //after the information is set, unblock the resource so threads can access to the shared objects
+				readerSem.Signal(); // both reader and writer need to be unblocked 
 
 				if(flag){ // if the flag is false, the thread is ended and should be terminated.
 					break;
@@ -47,6 +52,9 @@ class WriterThread : public Thread{//creating thread for the writer
 
 int main(void)
 {
+	Semaphore writerSem("writerSemaphore", 1, true); //using the Semaphore created in WriterThread and initiate 
+	Semaphore readerSem("readerSemaphore", 0, true);
+
 	std::string threadDelay;//for user to input new delay of reports
 	std::string userInput;//for user to input new msg.
 	int numThread=1;//the first thread should be generated at the begging, the number of thread should be accumulated whenever new threads are created 
@@ -56,7 +64,6 @@ int main(void)
 
 
 	WriterThread*thread;//creating a new object taht represents the writer class
-
 
 	Shared<MyShared> shared("sharedMemory", true); //This is the owner of sharedMamory, when the condition= true, writer are allowed to change the property of shared object
 	
